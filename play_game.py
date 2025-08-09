@@ -3,11 +3,17 @@ import sys
 import nefile
 import random
 import os
-from play_idx import play_audio, play_video
+import wave
+import play_media as pm
 
 CONTINUE = -1
 AUTOPLAY = False
+PROMO = True
+SALTY_LANGUAGE = True
+SILENT_RUN = True
 
+global media_bundle
+global active_media
 
 class bcolors:
     HEADER = '\033[95m'
@@ -19,12 +25,6 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
-
-
-if len(sys.argv) >= 2 and os.path.isdir(sys.argv[1]):
-    folder = sys.argv[1]
-else:
-    folder = "/Volumes/Untitled/"
 
 
 def split_lines(data):
@@ -49,38 +49,88 @@ def split_lines(data):
     return parts
 
 
-def executeInstruction(instruction):
+def execute_instruction(instruction):
+    global media_bundle
+    global active_media
+
     instruction_parts = instruction.split(";")
 
     if (len(instruction_parts) > 1 and len(instruction_parts[1].strip()) > 0):
         print("<< %s" % instruction_parts[1].strip())
-    instruction = instruction_parts[0].strip()
-    if (instruction[0:3] == "?r$"):
-        # print("DEBUG: Play Video - %s" % instruction)
-        play_video(int(instruction[3:]))
 
-    elif (instruction[0:2] == "?j"):
-        # print("DEBUG: Jump - %s" % instruction)
+    instruction = instruction_parts[0].strip()
+
+    print(f"Current Instruction: {instruction}")
+
+    if (instruction[0:3] in ("?r$")):
+        # Play a Video Clip
+        pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(instruction[3:]))
+
+    elif (instruction[0:3] in ("?R$")):
+        # Play a Potentially Censored Video Clip
+        # TODO: verify this is the command that determines if the PG or PG-13 version should play.
+        sub_instruction_parts = instruction[3:].split(",")
+
+        for i, sub_instruction_part in enumerate(sub_instruction_parts):
+            print(f"Sub-Instruction Part: {sub_instruction_part}")
+
+            if (not SALTY_LANGUAGE and (i == 0)):
+                # Family Friendly needs to play. Skip index.
+                continue
+
+            pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(sub_instruction_part))
+            break
+
+    elif (instruction[0:2] in ("?j", "?J")):
+        # Jump to Instruction
         return int(instruction[2:])
+
+    elif (instruction[0:2] in ("?g")):
+        # Disc Swap request
+        # TODO: verify this is accurate...
+        match instruction[0:6]:
+            case "?g0100":
+                # Disc 1
+                active_media = media_bundle["disc_1"]
+                print("Swapped to Disc 1")
+
+            case "?g0200":
+                # Disc 2
+                active_media = media_bundle["disc_2"]
+                print("Swapped to Disc 2")
+
+            case "?g0300":
+                # Disc 3
+                active_media = media_bundle["disc_3"]
+                print("Swapped to Disc 3")
+
+            case "?g0400":
+                # Disc 4
+                active_media = media_bundle["disc_4"]
+                print("Swapped to Disc 4")
+
+        # Return the rest of the instruction.
+        return int(instruction[7:])
+
     else:
-        print(bcolors.BOLD+"Warning command: " +
-              bcolors.OKBLUE+"%s" % instruction + bcolors.ENDC)
+        # Unknown Command
+        print(f"{bcolors.BOLD}Warning command: {bcolors.OKBLUE}{instruction}{bcolors.ENDC}")
 
     return CONTINUE
 
 
-def playSequence(sequence):
+def play_sequence(sequence):
     instructions = sequence.strip().split(">")
     for instruction in instructions:
         instruction = instruction.strip()
         if (len(instruction) > 0):
-            ret = executeInstruction(instruction)
+            ret = execute_instruction(instruction)
             if (ret != CONTINUE):
                 return ret
     return CONTINUE
 
 
-def runExchange(exchange):
+def run_exchange(exchange):
     options = {}
     lastOption = ""
     for line in exchange:
@@ -106,31 +156,38 @@ def runExchange(exchange):
     choice_str = list(options.keys())[choice_idx]
     print(">> %s" % choice_str[7:])
     audio_idx = choice_str[3:7]
-    play_audio(int(audio_idx))
+
+    if (not SILENT_RUN):
+        pm.play_audio(active_audio_file=active_media["audio_file"], audio_parts=active_media["audio_parts"], idx=int(audio_idx))
 
     result_str = random.choice(options[choice_str])
     instructions = result_str.split(">")
     for instruction in instructions:
         instruction = instruction.strip()
         if (len(instruction) > 0):
-            ret = executeInstruction(instruction)
+            ret = execute_instruction(instruction)
             if (ret != CONTINUE):
                 return ret
     return CONTINUE
 
 
-def playResource(resource):
+def play_resource(resource):
     lines = split_lines(list(resource))
     exchange = -1
+
     for scene in lines:
+
+        with open("Scenes.txt", "a") as f:
+            f.write(f"{str(scene)}\n")
+
         if (isinstance(scene, str) and scene.startswith("sequence")):
-            ret = playSequence(scene[8:])
+            ret = play_sequence(scene[8:])
             if (ret != CONTINUE):
                 return ret
         elif isinstance(scene, str) and scene.endswith('EXCHANGE'):
             exchange = int(scene[0:-9])
         elif exchange > 0 or (isinstance(scene, list) and scene[0][0:1] == "+"):
-            ret = runExchange(scene)
+            ret = run_exchange(scene)
             if (ret != CONTINUE):
                 return ret
             exchange = -1
@@ -140,35 +197,135 @@ def playResource(resource):
                   bcolors.OKBLUE+json.dumps(scene) + bcolors.ENDC)
     return CONTINUE
 
+def main():
+    global media_bundle
+    global active_media
 
-steel = nefile.NE(folder + "/STEEL.EXE")
-data_resources = steel.resource_table.resources["DATA"]
-scenes = {}
-for resource_id, resource in data_resources.items():
-    data_str = resource.data.read().decode(
-        "ascii").rstrip("\x1a \x00")  # there's padding
-    scenes[resource_id] = data_str
+    root: str = ""
 
-
-resource_ids = list(scenes.keys())
-idx = 0
-sceneId = resource_ids[idx]
-if (len(sys.argv) >= 2 and sys.argv[1].isdigit()):
-    sceneId = int(sys.argv[1])  # jump forward to this scene/resource
-    idx = resource_ids.index(sceneId)
-
-if (len(sys.argv) >= 2 and "auto" in sys.argv):
-    AUTOPLAY = True
-
-while True:
-    ret = playResource(scenes[sceneId])
-    if (ret != CONTINUE):
-        sceneId = ret
-        idx = resource_ids.index(sceneId)
+    if len(sys.argv) >= 2 and os.path.isdir(sys.argv[1]):
+        root = sys.argv[1]
     else:
-        idx += 1
-        if (idx < len(resource_ids)):
-            resource_ids[idx]
+        root = "/Volumes/Untitled/"
+
+    executable: str = "STEEL.EXE"
+    executable_file: str = os.path.join(root, executable)
+
+    if (PROMO):
+        # Promotional Version (One disc total)
+        media_bundle = {
+            "disc_promo": {
+                "video": "VIDEO1.MPG",
+                "video_file": os.path.join(root, "VIDEO1.MPG"),
+                "video_index": "VIDEO1.IDX",
+                "video_index_file": os.path.join(root, "VIDEO1.IDX"),
+                "audio": "SOUNDS1.WAV",
+                "audio_file": os.path.join(root, "SOUNDS1.WAV"),
+                "audio_index": "SOUNDS1.IDX",
+                "audio_index_file": os.path.join(root, "SOUNDS_1.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO1.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS1.IDX"))
+            }
+        }
+
+        active_media = media_bundle["disc_promo"]
+
+    else:
+        # Retail Version (Four discs total, start with Disc 1)
+        media_bundle = {
+            "disc_1": {
+                "video": "VIDEO1.AVI",
+                "video_file": os.path.join(root, "VIDEO1.AVI"),
+                "video_index": "VIDEO1.IDX",
+                "video_index_file": os.path.join(root, "VIDEO1.IDX"),
+                "audio": "SOUNDS1.WAV",
+                "audio_file": os.path.join(root, "SOUNDS1.WAV"),
+                "audio_index": "SOUNDS1.IDX",
+                "audio_index_file": os.path.join(root, "SOUNDS_1.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO1.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS1.IDX"))
+            },
+            "disc_2": {
+                "video": "VIDEO2.AVI",
+                "video_file": os.path.join(root, "VIDEO2.AVI"),
+                "video_index": "VIDEO2.IDX",
+                "video_index_file": os.path.join(root, "VIDEO2.IDX"),
+                "audio": "SOUNDS2.WAV",
+                "audio_file": os.path.join(root, "SOUNDS2.WAV"),
+                "audio_index": "SOUNDS2.IDX",
+                "audio_index_file": os.path.join(root, "SOUNDS2.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO2.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS2.IDX"))
+            },
+            "disc_3": {
+                "video": "VIDEO3.AVI",
+                "video_file": os.path.join(root, "VIDEO3.AVI"),
+                "video_index": "VIDEO3.IDX",
+                "video_index_file": os.path.join(root, "VIDEO3.IDX"),
+                "audio": "SOUNDS3.WAV",
+                "audio_file": os.path.join(root, "SOUNDS3.WAV"),
+                "audio_index": "SOUNDS3.IDX",
+                "audio_index_file": os.path.join(root, "SOUNDS3.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO3.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS3.IDX"))
+            },
+            "disc_4": {
+                "video": "VIDEO4.AVI",
+                "video_file": os.path.join(root, "VIDEO4.AVI"),
+                "video_index": "VIDEO4.IDX",
+                "video_index_file": os.path.join(root, "VIDEO4.IDX"),
+                "audio": "SOUNDS4.WAV",
+                "audio_file": os.path.join(root, "SOUNDS4.WAV"),
+                "audio_index": "SOUNDS4.IDX",
+                "audio_index_file": os.path.join(root, "SOUNDS4.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO4.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS4.IDX"))
+            }
+        }
+
+        active_media = media_bundle["disc_1"]
+
+    # Fetch the Resource Table from the Executable.
+    steel = nefile.NE(executable_file)
+    data_resources = steel.resource_table.resources["DATA"]
+
+    scenes = {}
+
+    for resource_id, resource in data_resources.items():
+        data_str = resource.data.read().decode("ascii").rstrip("\x1a \x00")  # there's padding
+        scenes[resource_id] = data_str
+
+    resource_ids = list(scenes.keys())
+
+    idx = 0
+
+    sceneId = resource_ids[idx]
+
+    # TODO: clean this up... parse args.
+    if (len(sys.argv) >= 2 and sys.argv[1].isdigit()):
+        sceneId = int(sys.argv[1])  # jump forward to this scene/resource
+        idx = resource_ids.index(sceneId)
+
+    if (len(sys.argv) >= 2 and "auto" in sys.argv):
+        AUTOPLAY = True
+
+    # Main Loop
+    while True:
+
+        resource_state = play_resource(scenes[sceneId])
+
+        if (resource_state != CONTINUE):
+            sceneId = resource_state
+            idx = resource_ids.index(sceneId)
+
         else:
-            print("Congratulations - you finished the Game!")
-            break
+            idx += 1
+            if (idx < len(resource_ids)):
+                resource_ids[idx]
+            else:
+                print("Congratulations - you finished the game!")
+                break
+
+
+if (__name__ == "__main__"):
+    main()
