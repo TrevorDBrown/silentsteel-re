@@ -3,15 +3,17 @@ import sys
 import nefile
 import random
 import os
-import wave
 import play_media as pm
 
 CONTINUE = -1
+END_GAME = -2
 AUTOPLAY = False
-PROMO = True
+PROMO = False
 SALTY_LANGUAGE = True
 SILENT_RUN = True
 
+# My sloppy workaround for passing this data around.
+# TODO: make this better!
 global media_bundle
 global active_media
 
@@ -53,43 +55,47 @@ def execute_instruction(instruction):
     global media_bundle
     global active_media
 
+    # Split instruction into instruction part, and subtitle part.
     instruction_parts = instruction.split(";")
 
+    # If the split results in two or more parts, the second part represents a subtitle, which should be displayed.
     if (len(instruction_parts) > 1 and len(instruction_parts[1].strip()) > 0):
         print("<< %s" % instruction_parts[1].strip())
 
+    # Get the actual instruction.
     instruction = instruction_parts[0].strip()
 
-    print(f"Current Instruction: {instruction}")
+    # DEBUG: print instruction.
+    print(f"{bcolors.OKGREEN}Current Full Instruction: {instruction}{bcolors.ENDC}")
 
-    if (instruction[0:3] in ("?r$")):
-        # Play a Video Clip
+    if (instruction[0:2] == "?v"):
+        # Believed to be entry point for game. No action.
+        return CONTINUE
+
+    elif (instruction[0:3] in ("?r$")):
+        # Instruction for Video Clip Playback
         pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(instruction[3:]))
 
     elif (instruction[0:3] in ("?R$")):
-        # Play a Potentially Censored Video Clip
-        # TODO: verify this is the command that determines if the PG or PG-13 version should play.
+        # Instruction for Video Clip Playback Selection based on Censorship Level
         sub_instruction_parts = instruction[3:].split(",")
 
         for i, sub_instruction_part in enumerate(sub_instruction_parts):
-            print(f"Sub-Instruction Part: {sub_instruction_part}")
-
             if (not SALTY_LANGUAGE and (i == 0)):
-                # Family Friendly needs to play. Skip index.
+                # "Family Friendly" video needs to play. Skip sub-instruction.
                 continue
 
             pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(sub_instruction_part))
-            break
+            break   # This is only needed if the SALTY_LANGUAGE flag is set to True.
 
     elif (instruction[0:2] in ("?j", "?J")):
-        # Jump to Instruction
+        # Instruction to Jump to another instruction.
         return int(instruction[2:])
 
     elif (instruction[0:2] in ("?g")):
-        # Disc Swap request
-        # TODO: verify this is accurate...
+        # Instruction for Disc Swap (i.e. Insert Disc 2 to continue...)
         match instruction[0:6]:
-            case "?g0100":
+            case "?g0100":      # TODO: this isn't referenced in STEEL.EXE, so unsure what it should actually be...
                 # Disc 1
                 active_media = media_bundle["disc_1"]
                 print("Swapped to Disc 1")
@@ -104,7 +110,7 @@ def execute_instruction(instruction):
                 active_media = media_bundle["disc_3"]
                 print("Swapped to Disc 3")
 
-            case "?g0400":
+            case "?g0600":
                 # Disc 4
                 active_media = media_bundle["disc_4"]
                 print("Swapped to Disc 4")
@@ -112,27 +118,45 @@ def execute_instruction(instruction):
         # Return the rest of the instruction.
         return int(instruction[7:])
 
+    elif (instruction[0:2] == "?*"):
+        # Not really sure what this is for... yet...
+        # TODO: figure out how this instruction works.
+        print(f"{bcolors.BOLD}Unknown instruction: {bcolors.OKBLUE}{instruction}{bcolors.ENDC}")
+        return CONTINUE
+
+    elif (instruction[0:6] == '?s0100'):
+        # Instruction to End the Game.
+        return END_GAME
+
     else:
-        # Unknown Command
-        print(f"{bcolors.BOLD}Warning command: {bcolors.OKBLUE}{instruction}{bcolors.ENDC}")
+        # The Instruction is unhandled.
+        print(f"{bcolors.BOLD}Unhandled instruction: {bcolors.OKBLUE}{instruction}{bcolors.ENDC}")
 
     return CONTINUE
 
 
 def play_sequence(sequence):
     instructions = sequence.strip().split(">")
+
     for instruction in instructions:
+
         instruction = instruction.strip()
+
         if (len(instruction) > 0):
+
             ret = execute_instruction(instruction)
+
             if (ret != CONTINUE):
                 return ret
+
     return CONTINUE
 
 
 def run_exchange(exchange):
+
     options = {}
     lastOption = ""
+
     for line in exchange:
         if (line[0] in ["+", "=", "-"]):
             options[line] = []
@@ -140,34 +164,48 @@ def run_exchange(exchange):
         elif (line[0] == ">"):
             options[lastOption].append(line)
         else:
-            print("WARNING WRONG EXCHANGE: %s" % line)
+            print(f"WARNING WRONG EXCHANGE: {line}")
+
     for idx, key in enumerate(options.keys()):
-        print("%i. %s" % (idx+1, key[7:]))
+        print(f"{idx+1}. {key[7:]}")
+
     choice_idx = -1
+
     while (choice_idx < 0 or choice_idx > 2):
+
         if not AUTOPLAY:
             inputstr = input("Your Choice: ")
+
             if (inputstr.isdigit()):
                 choice_idx = int(inputstr)-1
         else:
             choice_idx = random.randrange(3)
-            print("Your Choice: %i" % (choice_idx+1))
+            print(f"Your Choice: {choice_idx+1}")
 
     choice_str = list(options.keys())[choice_idx]
-    print(">> %s" % choice_str[7:])
+
+    print(f">> {choice_str[7:]}\n")
+
     audio_idx = choice_str[3:7]
 
     if (not SILENT_RUN):
         pm.play_audio(active_audio_file=active_media["audio_file"], audio_parts=active_media["audio_parts"], idx=int(audio_idx))
 
+    with open("Options.txt", "w") as f:
+        f.write(str(options))
+
+    # TODO: determine if this selects the response to the exchange?
     result_str = random.choice(options[choice_str])
+
     instructions = result_str.split(">")
+
     for instruction in instructions:
         instruction = instruction.strip()
         if (len(instruction) > 0):
             ret = execute_instruction(instruction)
             if (ret != CONTINUE):
                 return ret
+
     return CONTINUE
 
 
@@ -176,16 +214,14 @@ def play_resource(resource):
     exchange = -1
 
     for scene in lines:
-
-        with open("Scenes.txt", "a") as f:
-            f.write(f"{str(scene)}\n")
-
         if (isinstance(scene, str) and scene.startswith("sequence")):
             ret = play_sequence(scene[8:])
             if (ret != CONTINUE):
                 return ret
+
         elif isinstance(scene, str) and scene.endswith('EXCHANGE'):
             exchange = int(scene[0:-9])
+
         elif exchange > 0 or (isinstance(scene, list) and scene[0][0:1] == "+"):
             ret = run_exchange(scene)
             if (ret != CONTINUE):
@@ -193,8 +229,8 @@ def play_resource(resource):
             exchange = -1
 
         else:
-            print(bcolors.BOLD+"Warning Unsupported Scene: " +
-                  bcolors.OKBLUE+json.dumps(scene) + bcolors.ENDC)
+            print(f"{bcolors.BOLD}Unsupported Scene: {bcolors.OKBLUE}{json.dumps(scene)}{bcolors.ENDC}")
+
     return CONTINUE
 
 def main():
@@ -295,6 +331,9 @@ def main():
         data_str = resource.data.read().decode("ascii").rstrip("\x1a \x00")  # there's padding
         scenes[resource_id] = data_str
 
+    with open("Scenes.txt", "w") as f:
+        f.write(str(scenes))
+
     resource_ids = list(scenes.keys())
 
     idx = 0
@@ -311,20 +350,28 @@ def main():
 
     # Main Loop
     while True:
+        ret = play_resource(scenes[sceneId])
 
-        resource_state = play_resource(scenes[sceneId])
-
-        if (resource_state != CONTINUE):
-            sceneId = resource_state
-            idx = resource_ids.index(sceneId)
-
-        else:
+        if (ret == CONTINUE):
+            # Play next scene, if one exists.
             idx += 1
+
             if (idx < len(resource_ids)):
                 resource_ids[idx]
+
             else:
-                print("Congratulations - you finished the game!")
+                print("Game Over.")
                 break
+
+        elif (ret == END_GAME):
+            # End the Game.
+            print("Game Over.")
+            break
+
+        else:
+            # Play the specified scene.
+            sceneId = ret
+            idx = resource_ids.index(sceneId)
 
 
 if (__name__ == "__main__"):
