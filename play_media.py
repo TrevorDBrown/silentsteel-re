@@ -1,12 +1,7 @@
 import struct
-import sys
 import wave
 from subprocess import run
-import os
 import datetime
-
-# Define globals
-folder: str = ""
 
 def ms_to_timecode(milliseconds):
     """
@@ -91,8 +86,6 @@ def play_video(active_video_file: str, video_parts: dict, idx: int):
 
             elif (active_video_file.endswith("AVI")):
                 # Play as AVI video.
-                print(f"Start Time: {ms_to_timecode(start)}")
-                print(f"Duration: {ms_to_timecode(end - start)}")
                 run(['ffplay', '-ss', ms_to_timecode(start), '-t', ms_to_timecode(end - start), active_video_file, '-hide_banner', '-vf', 'scale=-1:480', '-loglevel', 'warning', '-autoexit'])
 
             else:
