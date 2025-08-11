@@ -3,7 +3,7 @@ import wave
 from subprocess import run
 import datetime
 
-def ms_to_timecode(milliseconds):
+def ms_to_timecode(milliseconds: int) -> str:
     """
     Converts milliseconds to a timecode string in HH:MM:SS.mmm format.
     """
@@ -17,27 +17,20 @@ def ms_to_timecode(milliseconds):
 
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds_part:03d}"
 
-def parse_idx(filename):
-    parts = {}
-    lastIdx = -1
-    # print(filename)
+def parse_idx(filename) -> dict:
+    parts: dict = {}
+    last_idx: int = -1
+
     with open(filename, 'rb') as in_file:
-        # print("====================")
-        # print(filename)
+        data: bytes = in_file.read(16)
+        format: str = data[0:4].decode("ascii")
+        length: int = int.from_bytes(data[12:14], "little")
 
-        data = in_file.read(16)
-        format = data[0:4].decode("ascii")
-        length = int.from_bytes(data[12:14], "little")
-
-        # print("Format: %s, Length: %i" % (format, length))
-        # print("Full Header: %s" % data.hex())
-        # print("----------------------")
-
-        i = 0
+        i: int = 0
 
         while True:
             i += 1
-            idx = in_file.read(2)
+            idx: int = in_file.read(2)
             if len(idx) == 0:                # breaks loop once no more binary data is read
                 break
             idx = int.from_bytes(idx, "little")
@@ -45,16 +38,14 @@ def parse_idx(filename):
             if (idx > 0):
                 parts[idx] = {}
                 parts[idx]["start"] = offset
-            if (lastIdx > 0):
-                parts[lastIdx]["end"] = offset
-            lastIdx = idx
-
-        # print("Parts found: i: %s len:%s" % (i, len(parts)))
+            if (last_idx > 0):
+                parts[last_idx]["end"] = offset
+            last_idx = idx
 
         return parts
 
 
-def play_audio(active_audio_file: str, audio_parts: dict, idx: int):
+def play_audio(active_audio_file: str, audio_parts: dict, idx: int) -> None:
 
     audio_params: dict = {}
 
@@ -67,17 +58,21 @@ def play_audio(active_audio_file: str, audio_parts: dict, idx: int):
     length = (audio_params.nframes/audio_params.framerate)
     size = audio_params.nframes*audio_params.sampwidth*audio_params.nchannels
     bitrate = audio_params.framerate*audio_params.nchannels*audio_params.sampwidth
-    # todo: this somehow isn't frame accurate (sometimes cuts off split second too early or to late)
+
+    # TODO: this somehow isn't frame accurate (sometimes cuts off split second too early or too late)
     start_sec = start/bitrate
     end_sec = end/bitrate
     duration = end_sec-start_sec
     seek = "%.2f" % start_sec
     duration_str = "%.2f" % duration
+
+    # Play the audio.
     run(['ffplay', '-hide_banner', '-loglevel', 'warning', '-nodisp', '-autoexit', '-i', active_audio_file, '-ss', seek, '-t', duration_str])
+
     return
 
 
-def play_video(active_video_file: str, video_parts: dict, idx: int):
+def play_video(active_video_file: str, video_parts: dict, idx: int) -> None:
 
     if (idx in video_parts):
         part = video_parts[idx]
