@@ -20,17 +20,21 @@ def ms_to_timecode(milliseconds):
 def parse_idx(filename):
     parts = {}
     lastIdx = -1
-    print(filename)
+    # print(filename)
     with open(filename, 'rb') as in_file:
-        print("====================")
-        print(filename)
+        # print("====================")
+        # print(filename)
+
         data = in_file.read(16)
         format = data[0:4].decode("ascii")
         length = int.from_bytes(data[12:14], "little")
-        print("Format: %s, Length: %i" % (format, length))
-        print("Full Header: %s" % data.hex())
-        print("----------------------")
+
+        # print("Format: %s, Length: %i" % (format, length))
+        # print("Full Header: %s" % data.hex())
+        # print("----------------------")
+
         i = 0
+
         while True:
             i += 1
             idx = in_file.read(2)
@@ -44,7 +48,9 @@ def parse_idx(filename):
             if (lastIdx > 0):
                 parts[lastIdx]["end"] = offset
             lastIdx = idx
-        print("Parts found: i: %s len:%s" % (i, len(parts)))
+
+        # print("Parts found: i: %s len:%s" % (i, len(parts)))
+
         return parts
 
 
