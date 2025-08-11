@@ -1,16 +1,18 @@
 import json
 import sys
-import nefile
-import random
+import nefile as nf
+import random as rnd
 import os
+import argparse as ap
 import play_media as pm
 
-CONTINUE = -1
+# Keywords
+CONTINUE = -1   # Advance to next resource/scene.
 END_GAME = -2
-AUTOPLAY = False
-PROMO = False
-SALTY_LANGUAGE = True
-SILENT_RUN = True
+
+# Terminal Control
+UP_ONE_LINE = "\033[A" # up 1 line
+DELETE_LINE = "\033[K" # clear line
 
 # My sloppy workaround for passing this data around.
 # TODO: make this better!
@@ -51,7 +53,7 @@ def split_lines(data):
     return parts
 
 
-def execute_instruction(instruction):
+def execute_instruction(instruction: str, game_options: dict):
     global media_bundle
     global active_media
 
@@ -60,13 +62,14 @@ def execute_instruction(instruction):
 
     # If the split results in two or more parts, the second part represents a subtitle, which should be displayed.
     if (len(instruction_parts) > 1 and len(instruction_parts[1].strip()) > 0):
-        print("<< %s" % instruction_parts[1].strip())
+        sys.stdout.write(f"{UP_ONE_LINE}{DELETE_LINE}")     # TODO: figure out if something like this can be done with a print statement.
+        print(f"<< {instruction_parts[1].strip()}")
 
     # Get the actual instruction.
     instruction = instruction_parts[0].strip()
 
     # DEBUG: print instruction.
-    print(f"{bcolors.OKGREEN}Current Full Instruction: {instruction}{bcolors.ENDC}")
+    # print(f"{bcolors.OKGREEN}Current Full Instruction: {instruction}{bcolors.ENDC}")
 
     if (instruction[0:2] == "?v"):
         # Believed to be entry point for game. No action.
@@ -81,7 +84,7 @@ def execute_instruction(instruction):
         sub_instruction_parts = instruction[3:].split(",")
 
         for i, sub_instruction_part in enumerate(sub_instruction_parts):
-            if (not SALTY_LANGUAGE and (i == 0)):
+            if (not game_options["salty_language"] and (i == 0)):
                 # "Family Friendly" video needs to play. Skip sub-instruction.
                 continue
 
@@ -98,22 +101,22 @@ def execute_instruction(instruction):
             case "?g0100":      # TODO: this isn't referenced in STEEL.EXE, so unsure what it should actually be...
                 # Disc 1
                 active_media = media_bundle["disc_1"]
-                print("Swapped to Disc 1")
+                print(f"{bcolors.OKGREEN}Swapped to Media from Disc 1{bcolors.ENDC}")
 
             case "?g0200":
                 # Disc 2
                 active_media = media_bundle["disc_2"]
-                print("Swapped to Disc 2")
+                print(f"{bcolors.OKGREEN}Swapped to Media from Disc 2{bcolors.ENDC}")
 
             case "?g0300":
                 # Disc 3
                 active_media = media_bundle["disc_3"]
-                print("Swapped to Disc 3")
+                print(f"{bcolors.OKGREEN}Swapped to Media from Disc 3{bcolors.ENDC}")
 
             case "?g0600":
                 # Disc 4
                 active_media = media_bundle["disc_4"]
-                print("Swapped to Disc 4")
+                print(f"{bcolors.OKGREEN}Swapped to Media from Disc 4{bcolors.ENDC}")
 
         # Return the rest of the instruction.
         return int(instruction[7:])
@@ -135,7 +138,7 @@ def execute_instruction(instruction):
     return CONTINUE
 
 
-def play_sequence(sequence):
+def play_sequence(sequence: str, game_options: dict):
     instructions = sequence.strip().split(">")
 
     for instruction in instructions:
@@ -144,7 +147,7 @@ def play_sequence(sequence):
 
         if (len(instruction) > 0):
 
-            ret = execute_instruction(instruction)
+            ret = execute_instruction(instruction, game_options)
 
             if (ret != CONTINUE):
                 return ret
@@ -152,7 +155,7 @@ def play_sequence(sequence):
     return CONTINUE
 
 
-def run_exchange(exchange):
+def run_exchange(exchange: list, game_options: dict):
 
     options = {}
     lastOption = ""
@@ -164,58 +167,56 @@ def run_exchange(exchange):
         elif (line[0] == ">"):
             options[lastOption].append(line)
         else:
-            print(f"WARNING WRONG EXCHANGE: {line}")
+            print(f"{bcolors.FAIL}WARNING WRONG EXCHANGE: {line}{bcolors.ENDC}")
 
+    # Print Exchange Options (1-3)
     for idx, key in enumerate(options.keys()):
         print(f"{idx+1}. {key[7:]}")
 
     choice_idx = -1
 
     while (choice_idx < 0 or choice_idx > 2):
-
-        if not AUTOPLAY:
-            inputstr = input("Your Choice: ")
-
-            if (inputstr.isdigit()):
-                choice_idx = int(inputstr)-1
+        if (game_options["autoplay"]):
+            # Autoplay is active.
+            choice_idx = rnd.randrange(3)
+            print(f"CPU's Choice: {choice_idx+1}")
         else:
-            choice_idx = random.randrange(3)
-            print(f"Your Choice: {choice_idx+1}")
+            choice = input("Your Choice: ")
+
+            if (choice.isdigit()):
+                choice_idx = int(choice)-1
 
     choice_str = list(options.keys())[choice_idx]
 
-    print(f">> {choice_str[7:]}\n")
+    print(f">> {choice_str[7:]}")
 
     audio_idx = choice_str[3:7]
 
-    if (not SILENT_RUN):
+    if (not game_options["silent_run"]):
         pm.play_audio(active_audio_file=active_media["audio_file"], audio_parts=active_media["audio_parts"], idx=int(audio_idx))
 
-    with open("Options.txt", "w") as f:
-        f.write(str(options))
-
     # TODO: determine if this selects the response to the exchange?
-    result_str = random.choice(options[choice_str])
+    result_str = rnd.choice(options[choice_str])
 
     instructions = result_str.split(">")
 
     for instruction in instructions:
         instruction = instruction.strip()
         if (len(instruction) > 0):
-            ret = execute_instruction(instruction)
+            ret = execute_instruction(instruction, game_options)
             if (ret != CONTINUE):
                 return ret
 
     return CONTINUE
 
 
-def play_resource(resource):
+def play_resource(resource, game_options: dict):
     lines = split_lines(list(resource))
     exchange = -1
 
     for scene in lines:
         if (isinstance(scene, str) and scene.startswith("sequence")):
-            ret = play_sequence(scene[8:])
+            ret = play_sequence(scene[8:], game_options)
             if (ret != CONTINUE):
                 return ret
 
@@ -223,7 +224,7 @@ def play_resource(resource):
             exchange = int(scene[0:-9])
 
         elif exchange > 0 or (isinstance(scene, list) and scene[0][0:1] == "+"):
-            ret = run_exchange(scene)
+            ret = run_exchange(scene, game_options)
             if (ret != CONTINUE):
                 return ret
             exchange = -1
@@ -237,30 +238,57 @@ def main():
     global media_bundle
     global active_media
 
-    root: str = ""
+    # Establish arguments.
+    arg_parser = ap.ArgumentParser(prog="Silent Steel Player")
+    arg_parser.add_argument("--promo", "-p", action="store_true", help="Specifies the game will be played in Promo Mode (Disc 1 Only)")
+    arg_parser.add_argument("--salty", "-x", action="store_true", help="Specifies whether the uncensored (i.e. \"Salty Language\") or censored (i.e. \"Family Friendly\") version of the game will be played.")
+    arg_parser.add_argument("--auto", "-a", action="store_true", help="Specifies if the game will be autoplayed.")
+    arg_parser.add_argument("--scene", "-s", type=int, help="Specifies a starting scene. Defaults to first scene.")
+    arg_parser.add_argument("--silent_run", action="store_true", help="Specifies whether or not the player speech should play.")
+    arg_parser.add_argument("media_path", help="Specifies the path to the media files (i.e. VIDEO1.MPG/AVI, VIDEO1.WAV, VIDEO1.IDX)")
 
-    if len(sys.argv) >= 2 and os.path.isdir(sys.argv[1]):
-        root = sys.argv[1]
+    # Parse the arguments.
+    parsed_args = arg_parser.parse_args()
+
+    root_path: str = ""
+    if (parsed_args.media_path):
+         root_path = parsed_args.media_path
     else:
-        root = "/Volumes/Untitled/"
+        root_path = "/Volumes/Untitled"
 
+    start_scene: int = -1
+    if (parsed_args.scene):
+        start_scene = parsed_args.scene
+
+    game_options: dict = {
+        "root_path": root_path,
+        "start_scene": start_scene,
+        "promo": parsed_args.promo,
+        "salty_language": parsed_args.salty,
+        "autoplay": parsed_args.auto,
+        "silent_run": parsed_args.silent_run
+    }
+
+    print("Welcome to the Silent Steel Interactive Movie!")
+
+    # STEEL.EXE references
     executable: str = "STEEL.EXE"
-    executable_file: str = os.path.join(root, executable)
+    executable_file: str = os.path.join(root_path, executable)
 
-    if (PROMO):
+    if (game_options["promo"]):
         # Promotional Version (One disc total)
         media_bundle = {
             "disc_promo": {
                 "video": "VIDEO1.MPG",
-                "video_file": os.path.join(root, "VIDEO1.MPG"),
+                "video_file": os.path.join(root_path, "VIDEO1.MPG"),
                 "video_index": "VIDEO1.IDX",
-                "video_index_file": os.path.join(root, "VIDEO1.IDX"),
+                "video_index_file": os.path.join(root_path, "VIDEO1.IDX"),
                 "audio": "SOUNDS1.WAV",
-                "audio_file": os.path.join(root, "SOUNDS1.WAV"),
+                "audio_file": os.path.join(root_path, "SOUNDS1.WAV"),
                 "audio_index": "SOUNDS1.IDX",
-                "audio_index_file": os.path.join(root, "SOUNDS_1.IDX"),
-                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO1.IDX")),
-                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS1.IDX"))
+                "audio_index_file": os.path.join(root_path, "SOUNDS_1.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO1.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS1.IDX"))
             }
         }
 
@@ -271,58 +299,58 @@ def main():
         media_bundle = {
             "disc_1": {
                 "video": "VIDEO1.AVI",
-                "video_file": os.path.join(root, "VIDEO1.AVI"),
+                "video_file": os.path.join(root_path, "VIDEO1.AVI"),
                 "video_index": "VIDEO1.IDX",
-                "video_index_file": os.path.join(root, "VIDEO1.IDX"),
+                "video_index_file": os.path.join(root_path, "VIDEO1.IDX"),
                 "audio": "SOUNDS1.WAV",
-                "audio_file": os.path.join(root, "SOUNDS1.WAV"),
+                "audio_file": os.path.join(root_path, "SOUNDS1.WAV"),
                 "audio_index": "SOUNDS1.IDX",
-                "audio_index_file": os.path.join(root, "SOUNDS_1.IDX"),
-                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO1.IDX")),
-                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS1.IDX"))
+                "audio_index_file": os.path.join(root_path, "SOUNDS_1.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO1.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS1.IDX"))
             },
             "disc_2": {
                 "video": "VIDEO2.AVI",
-                "video_file": os.path.join(root, "VIDEO2.AVI"),
+                "video_file": os.path.join(root_path, "VIDEO2.AVI"),
                 "video_index": "VIDEO2.IDX",
-                "video_index_file": os.path.join(root, "VIDEO2.IDX"),
+                "video_index_file": os.path.join(root_path, "VIDEO2.IDX"),
                 "audio": "SOUNDS2.WAV",
-                "audio_file": os.path.join(root, "SOUNDS2.WAV"),
+                "audio_file": os.path.join(root_path, "SOUNDS2.WAV"),
                 "audio_index": "SOUNDS2.IDX",
-                "audio_index_file": os.path.join(root, "SOUNDS2.IDX"),
-                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO2.IDX")),
-                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS2.IDX"))
+                "audio_index_file": os.path.join(root_path, "SOUNDS2.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO2.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS2.IDX"))
             },
             "disc_3": {
                 "video": "VIDEO3.AVI",
-                "video_file": os.path.join(root, "VIDEO3.AVI"),
+                "video_file": os.path.join(root_path, "VIDEO3.AVI"),
                 "video_index": "VIDEO3.IDX",
-                "video_index_file": os.path.join(root, "VIDEO3.IDX"),
+                "video_index_file": os.path.join(root_path, "VIDEO3.IDX"),
                 "audio": "SOUNDS3.WAV",
-                "audio_file": os.path.join(root, "SOUNDS3.WAV"),
+                "audio_file": os.path.join(root_path, "SOUNDS3.WAV"),
                 "audio_index": "SOUNDS3.IDX",
-                "audio_index_file": os.path.join(root, "SOUNDS3.IDX"),
-                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO3.IDX")),
-                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS3.IDX"))
+                "audio_index_file": os.path.join(root_path, "SOUNDS3.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO3.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS3.IDX"))
             },
             "disc_4": {
                 "video": "VIDEO4.AVI",
-                "video_file": os.path.join(root, "VIDEO4.AVI"),
+                "video_file": os.path.join(root_path, "VIDEO4.AVI"),
                 "video_index": "VIDEO4.IDX",
-                "video_index_file": os.path.join(root, "VIDEO4.IDX"),
+                "video_index_file": os.path.join(root_path, "VIDEO4.IDX"),
                 "audio": "SOUNDS4.WAV",
-                "audio_file": os.path.join(root, "SOUNDS4.WAV"),
+                "audio_file": os.path.join(root_path, "SOUNDS4.WAV"),
                 "audio_index": "SOUNDS4.IDX",
-                "audio_index_file": os.path.join(root, "SOUNDS4.IDX"),
-                "video_parts": pm.parse_idx(os.path.join(root, "VIDEO4.IDX")),
-                "audio_parts": pm.parse_idx(os.path.join(root, "SOUNDS4.IDX"))
+                "audio_index_file": os.path.join(root_path, "SOUNDS4.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO4.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS4.IDX"))
             }
         }
 
         active_media = media_bundle["disc_1"]
 
     # Fetch the Resource Table from the Executable.
-    steel = nefile.NE(executable_file)
+    steel = nf.NE(executable_file)
     data_resources = steel.resource_table.resources["DATA"]
 
     scenes = {}
@@ -331,26 +359,20 @@ def main():
         data_str = resource.data.read().decode("ascii").rstrip("\x1a \x00")  # there's padding
         scenes[resource_id] = data_str
 
-    with open("Scenes.txt", "w") as f:
-        f.write(str(scenes))
-
     resource_ids = list(scenes.keys())
 
     idx = 0
 
     sceneId = resource_ids[idx]
 
-    # TODO: clean this up... parse args.
-    if (len(sys.argv) >= 2 and sys.argv[1].isdigit()):
-        sceneId = int(sys.argv[1])  # jump forward to this scene/resource
+    # If a start scene is specified, jump to it.
+    if (game_options["start_scene"] >= 0):
+        sceneId = start_scene
         idx = resource_ids.index(sceneId)
 
-    if (len(sys.argv) >= 2 and "auto" in sys.argv):
-        AUTOPLAY = True
-
-    # Main Loop
+    # Ready to play!
     while True:
-        ret = play_resource(scenes[sceneId])
+        ret = play_resource(scenes[sceneId], game_options)
 
         if (ret == CONTINUE):
             # Play next scene, if one exists.
