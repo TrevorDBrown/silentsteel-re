@@ -72,7 +72,7 @@ def execute_instruction(instruction: str, game_options: dict):
     # print(f"{bcolors.OKGREEN}Current Full Instruction: {instruction}{bcolors.ENDC}")
 
     if (instruction[0:2] == "?v"):
-        # Believed to be entry point for game. No action.
+        # Believed to be entry point for game. No action necessary.
         return CONTINUE
 
     elif (instruction[0:3] in ("?r$")):
