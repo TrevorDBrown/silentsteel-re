@@ -10,6 +10,7 @@ import play_media as pm
 # TODO: make this better!
 global media_bundle
 global active_media
+global input_queue
 
 class game_states:
     CONTINUE = -1   # Advance to next resource/scene.
@@ -62,7 +63,10 @@ def execute_instruction(instruction: str, game_options: dict) -> int:
 
     # If the split results in two or more parts, the second part represents a subtitle, which should be displayed.
     if (len(instruction_parts) > 1 and len(instruction_parts[1].strip()) > 0):
-        sys.stdout.write(f"{terminal_control.UP_ONE_LINE}{terminal_control.DELETE_LINE}")     # TODO: figure out if something like this can be done with a print statement.
+        if (not game_options["silent_run"]):
+            # Because the ffplay outputs a blank line in the terminal, we need to go up a line and print the subtitle.
+            sys.stdout.write(f"{terminal_control.UP_ONE_LINE}{terminal_control.DELETE_LINE}")     # TODO: figure out if something like this can be done with a print statement.
+
         print(f"<< {instruction_parts[1].strip()}")
 
     # Get the actual instruction.
@@ -123,8 +127,23 @@ def execute_instruction(instruction: str, game_options: dict) -> int:
 
     elif (instruction[0:2] == "?*"):
         # TODO: figure out how this instruction works.
-        print(f"{terminal_text_styling.BOLD}Unknown instruction: {terminal_text_styling.OKBLUE}{instruction}{terminal_text_styling.ENDC}")
-        return game_states.CONTINUE
+        # print(f"{terminal_text_styling.BOLD}Unknown instruction: {terminal_text_styling.OKBLUE}{instruction}{terminal_text_styling.ENDC}")
+        # return game_states.CONTINUE
+
+        sub_instruction_parts: list[str] = instruction[2:].split(",")[1:]
+
+        selected_instruction: str = ""
+
+        if (instruction == "?*9999,9999"):
+            return game_states.CONTINUE
+
+        if (len(sub_instruction_parts) > 1):
+            selected_instruction = rnd.choice(sub_instruction_parts)
+        else:
+            selected_instruction = sub_instruction_parts[0]
+
+        return int(selected_instruction)
+
 
     elif (instruction[0:6] == '?s0100'):
         # Instruction to End the Game.
@@ -156,6 +175,8 @@ def play_sequence(sequence: str, game_options: dict) -> int:
 
 def run_exchange(exchange: list, game_options: dict) -> int:
 
+    global input_queue
+
     options: dict = {}
     last_option: str = ""
 
@@ -183,10 +204,17 @@ def run_exchange(exchange: list, game_options: dict) -> int:
             print(f"CPU's Choice: {choice_idx+1}")
 
         else:
-            choice = input("Your Choice: ")
+            if (len(input_queue) > 0):
+                # Input via file.
+                choice_idx = (input_queue.pop() - 1)
 
-            if (choice.isdigit()):
-                choice_idx = int(choice)-1
+                print(f"Input from File: {choice_idx + 1}")
+
+            else:
+                choice = input("Your Choice: ")
+
+                if (choice.isdigit()):
+                    choice_idx = int(choice)-1
 
     choice_str: str = list(options.keys())[choice_idx]
 
@@ -236,9 +264,27 @@ def play_resource(resource, game_options: dict) -> int:
 
     return game_states.CONTINUE
 
+def load_input_queue() -> list[int]:
+    new_input_queue: list[int] = []
+
+    with open("Input.txt", "r") as f:
+        lines: list[str] = f.readlines()
+
+        for line in lines:
+            if (str.isnumeric(line.strip())):
+                new_input_queue.append(int(line))
+            else:
+                print(f"Specified input ('{line}')is not numeric. Skipping")
+
+    # Reverse the list, so it can be used as a stack.
+    new_input_queue.sort(reverse=True)
+
+    return new_input_queue
+
 def main() -> None:
     global media_bundle
     global active_media
+    global input_queue
 
     # Establish arguments.
     arg_parser: ap.ArgumentParser = ap.ArgumentParser(prog="Silent Steel Player")
@@ -248,6 +294,7 @@ def main() -> None:
     arg_parser.add_argument("--scene", "-s", type=int, help="Specifies a starting scene. Defaults to first scene.")
     arg_parser.add_argument("--silent_run", action="store_true", help="Specifies whether or not the player speech should play.")
     arg_parser.add_argument("--debug", "-d", action="store_true", help="Provides verbose, debug information.")
+    arg_parser.add_argument("--input_queue", "-i", action="store_true", help="Specifies whether there are inputs to be processed in Input.txt.")
     arg_parser.add_argument("media_path", help="Specifies the path to the media files (i.e. VIDEO1.MPG/AVI, VIDEO1.WAV, VIDEO1.IDX)")
 
     # Parse the arguments.
@@ -262,6 +309,9 @@ def main() -> None:
     start_scene: int = -1
     if (parsed_args.scene):
         start_scene = parsed_args.scene
+
+    if (parsed_args.input_queue):
+        input_queue = load_input_queue()
 
     game_options: dict = {
         "root_path": root_path,
