@@ -1,6 +1,8 @@
+# Technical Information
 
+The following is a technical overview and reverse engineering details of Silent Steel.
 
-## Data Formats:
+## Game Data Formats
 
 ### Game Executable Resources
 
@@ -14,7 +16,7 @@ Thankfully, the format is not too complicated, so it's pretty straightforward to
 - The position of the resources table is encoded at byte 35 in the header (see OSDEV link above) - byte 163 in the file.
 - In our case, this byte is '00x60' or 96 in decimal. Adding this to the start of the header at 128 bytes means we now jump to byte 224.
 - I'll skim over the details of the resource table, but the resources we are looking for (type `F4 04` in Ghidra, though that's actually the address of the string id - which is "DATA") start at byte 410 and theres 85 (`\x54` in the 3rd byte) of them. The first two resources look as follows: (2nd line parsed)
-  ![Resource Table](steel_exe-resource-table.png)
+  ![Resource Table](misc/images/steel_exe-resource-table.png)
   ```
   Field:  | Offset     | Size    | Attributes   | Resource Type ID
   Raw:    | CE 2D      | 06 00   | 20 10        | E9 83
@@ -45,7 +47,7 @@ Once extracted, the game scripts follow a simple syntax. To explain, lets go thr
 
 This means that in sequence, three things will happen:
 
-- `?v18`: Unknown meaning
+- `?v18`: Unknown meaning, possibly an entry point for the game code. However, this correlates with the game player version.
 - `?r$1001;`: Play video 1001 (if there's text after `;` print it out as subtitles).
 - `?j1002`: Jump to resource 1002
 
@@ -58,7 +60,7 @@ This means that in sequence, three things will happen:
 ```
 
 - `?&9999`: Unknown meaning (video maybe a marker for savegames/checkpoint?)
-- `?r$1002;`: Play video 1002, again no subtitles
+- `?r$1002;`: Play video 1002
 
 ```
  1 EXCHANGE {
@@ -96,15 +98,25 @@ This is the first time the player gets to make a decision:
 
 - This consequence has a jump (`?j2001) meaning that this choice ends the exchange and the game continues at resource 2001.
 
+#### ?v Instruction (Versioning?)
+
+The `?v` instruction only appears once right at the beginning of the game. It is followed by a numeric value, which correlates with the game player version. For some reason, it's specifically the third segment of a four segment version (e.g. for the Promotional MPEG version, the player version is 1.24.18.121, where the `?v` instruction is `?v18`. For the full retail AVI version, the version is 1.71.41.135, where the `?v` instruction is `v41`.
+
+#### ?g Instruction (Disc Swapping)
+
+The full retail version of the game, namely the MPEG and AVI versions of the game, are split across four discs total. Throughout the game, the player may be directed to swap to another disc. That request is handled through a `?g` instruction.
+
+The `?g` instruction typically has two numeric values following it. The first value represents the target disc, while the second is the target resource on the target disc.
+
+In the Promotional MPEG version of the game, `?g` appears 50 times. Although, this version of the game does not have additional discs to swap. Therefore, a lot of the exchanges that result in a disc swap instead redirect to the "game over" sequence, where you are facing an Naval officer behind a desk.
+
 #### Other instructions
 
 Later in the script, a few more unknown instructions are used, it's unclear what the following instructions mean:
 
-- `?v` - this actually only appears once right at the beginning of the game (`?v18` see above)
 - `?s0100` - actually no other `?s` instruction is used in the promo disc. appears 15 times.
 - `?&` - appears many (61) times in the promo disc, nothing actually seems to happen in the original game at these points in the game - maybe it's a savegame state?
 - `?*` - appears 45 times, could also be an alternative video play or jump instruction? it has multiple comma-separate numbers following it (instead of a single number for the previously discussed instructions). maybe a sequence of videos or a random jump?
-- `?g` - appears 50 times, could also be an alternative video play or jump instruction? it has multiple comma-separate numbers following it. maybe a sequence of videos or a random jump?
 
 ### Media Files
 
@@ -129,7 +141,7 @@ Later in the script, a few more unknown instructions are used, it's unclear what
   | 0 | 2 bytes | Index as little endian integer |
   | 2 | 4 | File offset for index as little endian integer |
 
-## Additional Tools Used:
+## Additional Tools Used
 
 - [Ghidra](https://ghidra-sre.org/) to browse the resources and poke around a bit - didn't decompile anything really.
 - [UTM](https://github.com/utmapp/UTM) to emulate a PC from the era and run Windows 98 (couldn't get Windows 95 running)
