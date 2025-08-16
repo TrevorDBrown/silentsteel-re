@@ -12,6 +12,32 @@ global media_bundle
 global active_media
 global input_queue
 
+class GameState:
+    current_points: int = 0
+    previous_points: int = 0
+
+    def __init__(self):
+        self.current_points = 0
+        self.previous_points = 0
+
+    def recalculate_points(self, exchange_selection: str) -> None:
+        # TODO: the calculation isn't this simple...
+        # In some cases, points changed by 2 (i.e. 1 -> -1, -1 -> 1, instead of 1 -> 0, -1 -> 0)
+
+        self.previous_points = self.current_points
+
+        if (exchange_selection == "+"):
+            self.current_points += 1
+        elif (exchange_selection == "-"):
+            self.current_points -= 1
+        else:
+            # i.e. exchange_selection == "="
+            # current_points stays the same.
+            pass
+
+        return
+
+
 class game_states:
     CONTINUE = -1   # Advance to next resource/scene.
     END_GAME = -2
