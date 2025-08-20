@@ -1,8 +1,8 @@
 import json
 import sys
+import os
 import nefile as nf
 import random as rnd
-import os
 import argparse as ap
 import play_media as pm
 
@@ -107,7 +107,7 @@ def execute_instruction(instruction: str, game_options: dict) -> int:
 
     elif (instruction[0:3] in ("?r$")):
         # Instruction for Video Clip Playback
-        pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(instruction[3:]))
+        pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(instruction[3:]), game_options=game_options)
 
     elif (instruction[0:3] in ("?R$")):
         # Instruction for Video Clip Playback Selection based on Censorship Level
@@ -118,7 +118,7 @@ def execute_instruction(instruction: str, game_options: dict) -> int:
                 # "Family Friendly" video needs to play. Skip the current sub-instruction.
                 continue
 
-            pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(sub_instruction_part))
+            pm.play_video(active_video_file=active_media["video_file"], video_parts=active_media["video_parts"], idx=int(sub_instruction_part), game_options=game_options)
             break   # This is only needed if the SALTY_LANGUAGE flag is set to True.
 
     elif (instruction[0:2] in ("?j", "?J")):
@@ -249,7 +249,7 @@ def run_exchange(exchange: list, game_options: dict) -> int:
     audio_idx: str = choice_str[3:7]
 
     if (not game_options["silent_run"]):
-        pm.play_audio(active_audio_file=active_media["audio_file"], audio_parts=active_media["audio_parts"], idx=int(audio_idx))
+        pm.play_audio(active_audio_file=active_media["audio_file"], audio_parts=active_media["audio_parts"], idx=int(audio_idx), game_options=game_options)
 
     # TODO: determine if this selects the response to the exchange?
     result_str: str = rnd.choice(options[choice_str])
@@ -290,8 +290,11 @@ def play_resource(resource, game_options: dict) -> int:
 
     return game_states.CONTINUE
 
-def load_input_queue() -> list[int]:
+def load_input_queue(input_queue_enabled: bool) -> list[int]:
     new_input_queue: list[int] = []
+
+    if (not input_queue_enabled):
+        return new_input_queue
 
     with open("Input.txt", "r") as f:
         lines: list[str] = f.readlines()
@@ -311,6 +314,13 @@ def main() -> None:
     global media_bundle
     global active_media
     global input_queue
+
+    # Verify ffplay setup.
+    ffplay_path: str = pm.setup_ffplay()
+
+    if (ffplay_path == ""):
+        # No available installation of ffmpeg/ffplay.
+        return
 
     # Establish arguments.
     arg_parser: ap.ArgumentParser = ap.ArgumentParser(prog="Silent Steel Player")
@@ -336,12 +346,12 @@ def main() -> None:
     if (parsed_args.scene):
         start_scene = parsed_args.scene
 
-    if (parsed_args.input_queue):
-        input_queue = load_input_queue()
+    input_queue = load_input_queue(parsed_args.input_queue)
 
     game_options: dict = {
         "root_path": root_path,
         "start_scene": start_scene,
+        "ffplay_path": ffplay_path,
         "promo": parsed_args.promo,
         "salty_language": parsed_args.salty,
         "autoplay": parsed_args.auto,
