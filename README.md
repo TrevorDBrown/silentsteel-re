@@ -24,10 +24,10 @@ For a full documentation of the data formats and other details, check out the wr
 
 At the moment, this project supports the following versions of the game:
 
-- Promotional version, available at the [Internet Archive](https://archive.org/details/silentsteeldisconepromotional). This version is based on the Windows 3.1 MPEG release.
-- Full retail version, MPEG and AVI releases, available on eBay.
+- Promotional version (MPEG only), available at the [Internet Archive](https://archive.org/details/silentsteeldisconepromotional). This version is based on the Windows 3.1 MPEG release.
+- Full retail versions (MPEG and AVI releases) available on eBay.
 
-There were many releases of this game, it's not clear whether the later PC releases, namely DVD-ROM, were implemented in the same way. There exists a rare DVD Video version, that utilizes standard DVD functions for control. However, it is too technically different to be utilized in this current implementation.
+There were many releases of this game, it's not clear whether the later PC releases (namely the DVD-ROM release), were implemented in the same way. There exists a rare DVD Video version, that utilizes standard DVD Player functions for control. However, it is too technically different to be utilized in this current implementation.
 
 ## Installation/Usage Requirements
 
