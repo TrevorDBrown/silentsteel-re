@@ -1,3 +1,5 @@
 .venv
 silentsteel.rep
 silentsteel.gpr
+bin/
+__pycache__/
