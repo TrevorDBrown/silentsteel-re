@@ -1,7 +1,34 @@
+import os
 import struct
 import wave
 from subprocess import run
 import datetime
+import local_ffmpeg
+
+def setup_ffplay() -> str:
+    ffplay_path: str = ""
+
+    # Check if ffmpeg/ffplay is installed on the system and available on PATH.
+    if (local_ffmpeg.is_installed(None)):
+        print("Using ffmpeg/ffplay on PATH.")
+        return os.path.join(ffplay_path, "ffplay")
+
+    # ffmpeg/ffplay is either not installed on the system, or is unavailable on PATH. Check if a local copy exists in the project directory.
+    ffplay_path = os.path.join(os.getcwd(), "bin", "ffmpeg")
+
+    if (local_ffmpeg.is_installed(ffplay_path)):
+        print(f"Using ffmpeg/ffplay previously installed at: {ffplay_path}")
+        return os.path.join(ffplay_path, "ffplay")
+
+    # ffmpeg/ffplay is not installed in project directory. Install a local copy.
+    successful_ffmpeg_install, ffmpeg_install_message = local_ffmpeg.install(ffplay_path)
+
+    if (not successful_ffmpeg_install):
+        print(f"Error installing ffmpeg/ffplay: {ffmpeg_install_message}")
+        return ""
+
+    # Successful installation of ffplay in project directory.
+    return os.path.join(ffplay_path, "ffplay")
 
 def ms_to_timecode(milliseconds: int) -> str:
     """
@@ -45,7 +72,7 @@ def parse_idx(filename) -> dict:
         return parts
 
 
-def play_audio(active_audio_file: str, audio_parts: dict, idx: int) -> None:
+def play_audio(active_audio_file: str, audio_parts: dict, idx: int, game_options: dict) -> None:
 
     audio_params: dict = {}
 
@@ -55,8 +82,6 @@ def play_audio(active_audio_file: str, audio_parts: dict, idx: int) -> None:
     part = audio_parts[idx]
     start = part["start"]
     end = part["end"]
-    length = (audio_params.nframes/audio_params.framerate)
-    size = audio_params.nframes*audio_params.sampwidth*audio_params.nchannels
     bitrate = audio_params.framerate*audio_params.nchannels*audio_params.sampwidth
 
     # TODO: this somehow isn't frame accurate (sometimes cuts off split second too early or too late)
@@ -67,12 +92,12 @@ def play_audio(active_audio_file: str, audio_parts: dict, idx: int) -> None:
     duration_str = "%.2f" % duration
 
     # Play the audio.
-    run(['ffplay', '-hide_banner', '-loglevel', 'warning', '-nodisp', '-autoexit', '-i', active_audio_file, '-ss', seek, '-t', duration_str])
+    run([game_options["ffplay_path"], '-hide_banner', '-loglevel', 'warning', '-nodisp', '-autoexit', '-i', active_audio_file, '-ss', seek, '-t', duration_str])
 
     return
 
 
-def play_video(active_video_file: str, video_parts: dict, idx: int) -> None:
+def play_video(active_video_file: str, video_parts: dict, idx: int, game_options: dict) -> None:
 
     if (idx in video_parts):
         part = video_parts[idx]
@@ -83,11 +108,11 @@ def play_video(active_video_file: str, video_parts: dict, idx: int) -> None:
 
             if (active_video_file.endswith("MPG")):
                 # Play as MPEG video.
-                run(['ffplay', '-hide_banner', '-vf', 'scale=-1:480', '-loglevel', 'warning', '-autoexit', '-'], input=fin.read(end - start))
+                run([game_options["ffplay_path"], '-hide_banner', '-vf', 'scale=-1:480', '-loglevel', 'warning', '-autoexit', '-'], input=fin.read(end - start))
 
             elif (active_video_file.endswith("AVI")):
                 # Play as AVI video.
-                run(['ffplay', '-ss', ms_to_timecode(start), '-t', ms_to_timecode(end - start), active_video_file, '-hide_banner', '-vf', 'scale=-1:480', '-loglevel', 'warning', '-autoexit'])
+                run([game_options["ffplay_path"], '-ss', ms_to_timecode(start), '-t', ms_to_timecode(end - start), active_video_file, '-hide_banner', '-vf', 'scale=-1:480', '-loglevel', 'warning', '-autoexit'])
 
             else:
                 print(f"WARNING: Video format not handled {idx}")
