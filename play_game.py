@@ -12,6 +12,15 @@ global media_bundle
 global active_media
 global input_queue
 
+class MediaBundle:
+    library: list
+    active_media: dict
+
+    def __init__(self) -> None:
+        return
+
+    def swap_media(self, target_media: str) -> bool:
+        return False
 class GameState:
     current_points: int = 0
     previous_points: int = 0
@@ -290,6 +299,26 @@ def play_resource(resource, game_options: dict) -> int:
 
     return game_states.CONTINUE
 
+def extract_game_script(executable_file: str) -> tuple[dict, list, int]:
+    # Fetch the Resource Table from the executable.
+    steel: nf.NE = nf.NE(executable_file)
+    data_resources: dict = steel.resource_table.resources["DATA"]
+
+    scenes: dict = {}
+    start_scene_index: int = 0
+
+    for i, (resource_id, resource) in enumerate(data_resources.items()):
+        data_str: str = resource.data.read().decode("ascii").rstrip("\x1a \x00")  # there's padding
+        scenes[resource_id] = data_str
+
+        # This ensures we use the actual first scene of the game.
+        if (resource_id == 1001):
+            start_scene_index = i
+
+    resource_ids: list = list(scenes.keys())
+
+    return scenes, resource_ids, start_scene_index
+
 def load_input_queue(input_queue_enabled: bool) -> list[int]:
     new_input_queue: list[int] = []
 
@@ -324,9 +353,10 @@ def main() -> None:
 
     # Establish arguments.
     arg_parser: ap.ArgumentParser = ap.ArgumentParser(prog="Silent Steel Player")
-    arg_parser.add_argument("--promo", "-p", action="store_true", help="Specifies the game will be played in Promo Mode (Disc 1 Only)")
+    arg_parser.add_argument("--game", "-g", dest="game_selection", choices=["Silent Steel", "Flash Traffic"], help="Specifies which TsAGE title you want to play. Please note: this argument is not currently implemented, and will do nothing.")
+    arg_parser.add_argument("--game_type", "-t", required=True, dest="game_type", choices=["promo", "mpeg", "avi"], help="Specifies the game will be played in Promo (MPEG) Mode, MPEG Full Retail Mode, or AVI Full Retail Mode.")
     arg_parser.add_argument("--salty", "-x", action="store_true", help="Specifies whether the uncensored (i.e. \"Salty Language\") or censored (i.e. \"Family Friendly\") version of the game will be played.")
-    arg_parser.add_argument("--auto", "-a", action="store_true", help="Specifies if the game will be autoplayed.")
+    arg_parser.add_argument("--auto", "-a", action="store_true", help="Specifies if the game will be auto-played.")
     arg_parser.add_argument("--scene", "-s", type=int, help="Specifies a starting scene. Defaults to first scene.")
     arg_parser.add_argument("--silent_run", action="store_true", help="Specifies whether or not the player speech should play.")
     arg_parser.add_argument("--debug", "-d", action="store_true", help="Provides verbose, debug information.")
@@ -346,13 +376,14 @@ def main() -> None:
     if (parsed_args.scene):
         start_scene = parsed_args.scene
 
+    # This will return an empty list, if no input is provided.
     input_queue = load_input_queue(parsed_args.input_queue)
 
     game_options: dict = {
         "root_path": root_path,
         "start_scene": start_scene,
         "ffplay_path": ffplay_path,
-        "promo": parsed_args.promo,
+        "game_type": parsed_args.game_type,
         "salty_language": parsed_args.salty,
         "autoplay": parsed_args.auto,
         "silent_run": parsed_args.silent_run,
@@ -365,7 +396,7 @@ def main() -> None:
     executable: str = "STEEL.EXE"
     executable_file: str = os.path.join(root_path, executable)
 
-    if (game_options["promo"]):
+    if (game_options["game_type"] == "promo"):
         # Promotional Version (One disc total)
         media_bundle = {
             "disc_promo": {
@@ -384,8 +415,64 @@ def main() -> None:
 
         active_media = media_bundle["disc_promo"]
 
-    else:
-        # Retail Version (Four discs total)
+    elif (game_options["game_type"] == "mpeg"):
+        # MPEG Full Retail (Four discs total)
+        media_bundle = {
+            "disc_1": {
+                "video": "VIDEO1.MPG",
+                "video_file": os.path.join(root_path, "VIDEO1.MPG"),
+                "video_index": "VIDEO1.IDX",
+                "video_index_file": os.path.join(root_path, "VIDEO1.IDX"),
+                "audio": "SOUNDS1.WAV",
+                "audio_file": os.path.join(root_path, "SOUNDS1.WAV"),
+                "audio_index": "SOUNDS1.IDX",
+                "audio_index_file": os.path.join(root_path, "SOUNDS_1.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO1.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS1.IDX"))
+            },
+            "disc_2": {
+                "video": "VIDEO2.MPG",
+                "video_file": os.path.join(root_path, "VIDEO2.MPG"),
+                "video_index": "VIDEO2.IDX",
+                "video_index_file": os.path.join(root_path, "VIDEO2.IDX"),
+                "audio": "SOUNDS2.WAV",
+                "audio_file": os.path.join(root_path, "SOUNDS2.WAV"),
+                "audio_index": "SOUNDS2.IDX",
+                "audio_index_file": os.path.join(root_path, "SOUNDS2.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO2.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS2.IDX"))
+            },
+            "disc_3": {
+                "video": "VIDEO3.MPG",
+                "video_file": os.path.join(root_path, "VIDEO3.MPG"),
+                "video_index": "VIDEO3.IDX",
+                "video_index_file": os.path.join(root_path, "VIDEO3.IDX"),
+                "audio": "SOUNDS3.WAV",
+                "audio_file": os.path.join(root_path, "SOUNDS3.WAV"),
+                "audio_index": "SOUNDS3.IDX",
+                "audio_index_file": os.path.join(root_path, "SOUNDS3.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO3.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS3.IDX"))
+            },
+            "disc_4": {
+                "video": "VIDEO4.MPG",
+                "video_file": os.path.join(root_path, "VIDEO4.MPG"),
+                "video_index": "VIDEO4.IDX",
+                "video_index_file": os.path.join(root_path, "VIDEO4.IDX"),
+                "audio": "SOUNDS4.WAV",
+                "audio_file": os.path.join(root_path, "SOUNDS4.WAV"),
+                "audio_index": "SOUNDS4.IDX",
+                "audio_index_file": os.path.join(root_path, "SOUNDS4.IDX"),
+                "video_parts": pm.parse_idx(os.path.join(root_path, "VIDEO4.IDX")),
+                "audio_parts": pm.parse_idx(os.path.join(root_path, "SOUNDS4.IDX"))
+            }
+        }
+
+        # Start with Disc 1 media.
+        active_media = media_bundle["disc_1"]
+
+    elif(game_options["game_type"] == "avi"):
+        # AVI Full Retail Version (Four discs total)
         media_bundle = {
             "disc_1": {
                 "video": "VIDEO1.AVI",
@@ -440,19 +527,10 @@ def main() -> None:
         # Start with Disc 1 media.
         active_media = media_bundle["disc_1"]
 
-    # Fetch the Resource Table from the executable.
-    steel: nf.NE = nf.NE(executable_file)
-    data_resources: dict = steel.resource_table.resources["DATA"]
+    # Get the game script from the original executable.
+    scenes, resource_ids, start_index = extract_game_script(executable_file)
 
-    scenes: dict = {}
-
-    for resource_id, resource in data_resources.items():
-        data_str: str = resource.data.read().decode("ascii").rstrip("\x1a \x00")  # there's padding
-        scenes[resource_id] = data_str
-
-    resource_ids: list = list(scenes.keys())
-
-    idx: int = 0
+    idx: int = start_index
     sceneId: int = resource_ids[idx]
 
     # If a start scene is specified, jump to it.
