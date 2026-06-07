@@ -3,3 +3,4 @@ silentsteel.rep
 silentsteel.gpr
 bin/
 __pycache__/
+*.DS_Store*
