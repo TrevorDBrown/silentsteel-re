@@ -1,0 +1,137 @@
+# STEEL_EXE - MPEG - Sequences Dump.txt
+resources: 156
+instructions: 4309
+choice counts: {'+': 231, '-': 216, '=': 210}
+opcode counts:
+  ?##: 2
+  ?&: 178
+  ?*: 453
+  ?R$: 121
+  ?g: 70
+  ?j: 723
+  ?r$: 2649
+  ?s: 112
+  ?v: 1
+markers (?&): 178
+star branches (?*): 453
+star first args also marked by ?&: [1012, 1022, 2003, 2006, 2009, 2016, 2017, 2052, 2107, 4003, 4004, 4007, 4012, 4019, 4103, 4104, 4203, 4403, 4506, 4507, 4531, 4541, 4619, 5001, 5002, 5003, 5004, 5204, 7400]
+star first args without matching ?& marker: [9999]
+star target args that are ?& markers: [2009, 2016, 2017, 2115, 2117, 4007, 4009, 4019, 4103, 4203, 4403, 4619, 5002, 5204, 6003, 7400]
+
+sample ?* branches:
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1007: ?*4019,1003,1013 first_arg_has_marker=True
+  1104: ?*2003,1105,1305 first_arg_has_marker=True
+  1104: ?*2003,1205,1305 first_arg_has_marker=True
+  1104: ?*2003,1205,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+
+# STEEL_EXE - AVI - Sequences Dump.txt
+resources: 155
+instructions: 4260
+choice counts: {'+': 213, '-': 216, '=': 210}
+opcode counts:
+  ?&: 178
+  ?*: 465
+  ?R$: 118
+  ?g: 70
+  ?j: 723
+  ?r$: 2594
+  ?s: 111
+  ?v: 1
+markers (?&): 178
+star branches (?*): 465
+star first args also marked by ?&: [1012, 1022, 2003, 2006, 2009, 2016, 2017, 2052, 2107, 4003, 4004, 4007, 4012, 4019, 4103, 4104, 4203, 4403, 4506, 4507, 4531, 4541, 4619, 5001, 5002, 5003, 5004, 5204, 7400]
+star first args without matching ?& marker: [9999]
+star target args that are ?& markers: [2009, 2016, 2017, 2115, 2117, 4007, 4009, 4019, 4103, 4203, 4403, 4619, 5002, 5204, 6003, 7400]
+
+sample ?* branches:
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1005: ?*4019,1007 first_arg_has_marker=True
+  1005: ?*4506,1007 first_arg_has_marker=True
+  1005: ?*4507,1007,1006 first_arg_has_marker=True
+  1007: ?*4019,1003,1013 first_arg_has_marker=True
+  1104: ?*2003,1105,1305 first_arg_has_marker=True
+  1104: ?*2003,1205,1305 first_arg_has_marker=True
+  1104: ?*2003,1205,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1104: ?*2003,1005,1305 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+  1105: ?*4019,1007 first_arg_has_marker=True
+  1105: ?*4506,1007 first_arg_has_marker=True
+  1105: ?*4507,1007,1006 first_arg_has_marker=True
+
+# STEEL_EXE - MPEG PROMO - Sequences Dump.txt
+resources: 84
+instructions: 2202
+choice counts: {'+': 122, '-': 137, '=': 122}
+opcode counts:
+  ?&: 61
+  ?*: 45
+  ?g: 50
+  ?j: 487
+  ?r$: 1543
+  ?s: 15
+  ?v: 1
+markers (?&): 61
+star branches (?*): 45
+star first args also marked by ?&: [1012, 2016, 2052, 2107, 4103, 4203, 4541, 5001, 9999]
+star first args without matching ?& marker: []
+star target args that are ?& markers: [2016, 4103, 4203, 5204, 9999]
+
+sample ?* branches:
+  2002: ?*5001,3301 first_arg_has_marker=True
+  2002: ?*9999,2018 first_arg_has_marker=True
+  2013: ?*2016,7200,2016 first_arg_has_marker=True
+  2013: ?*2016,7200,2016 first_arg_has_marker=True
+  2042: ?*9999,9999 first_arg_has_marker=True
+  2107: ?*4203,2035,4203 first_arg_has_marker=True
+  2107: ?*4203,2035,4203 first_arg_has_marker=True
+  2107: ?*4203,2035,4203 first_arg_has_marker=True
+  2107: ?*4203,2035,4103 first_arg_has_marker=True
+  2107: ?*4203,2035,4103 first_arg_has_marker=True
+  2107: ?*4203,2035,4103 first_arg_has_marker=True
+  2113: ?*2107,7200,2016 first_arg_has_marker=True
+  2113: ?*2107,7200,2016 first_arg_has_marker=True
+  2113: ?*2107,7200,2016 first_arg_has_marker=True
+  2207: ?*2016,2004,2016 first_arg_has_marker=True
+  2207: ?*2016,2004,2016 first_arg_has_marker=True
+  2207: ?*2016,2004,2016 first_arg_has_marker=True
+  3201: ?*1012,2022,2002 first_arg_has_marker=True
+  3501: ?*2052,2042,2022 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True
+  4002: ?*9999,9999 first_arg_has_marker=True

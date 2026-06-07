@@ -1,0 +1,5 @@
+logs/*.log
+media/
+tmp/
+**/__pycache__/
+*.pyc
