@@ -6,9 +6,13 @@ The following is a technical overview and reverse engineering details of Silent 
 
 Silent Steel is one of the earliest PC games to utilize multimedia on this scale. Tsunami really pioneered the interactive movie genre. As such, the multimedia files used are also cutting-edge for the time.
 
-### Promotional Version
+### Releases
 
-Looking at the MPEG Promo version, the following media files on a single disc:
+There exists four versions of Silent Steel: MPEG-based Promotional, MPEG-based Retail, AVI-based, and a DVD-based.
+
+#### MPEG (Promotional)
+
+Looking at the MPEG-based promotional version, the following media files on a single disc:
 
 - `VIDEO1.MPG`
 - `SOUNDS1.WAV`
@@ -21,9 +25,9 @@ Looking at the MPEG Promo version, the following media files on a single disc:
 
 `VIDEO1.IDX` and `SOUNDS1.IDX` are index files for the multimedia files. They contain a list of indices used in the game scripts, which map to file offsets for each media segment. From what @chkuendig can tell, the media segments are not overlapping (although there's a lot of duplicated content) and the offsets mark both start of a segment as well as the end of the previous segment.
 
-### Full Retail Version
+#### MPEG (Retail)
 
-The MPEG Full Retail version expands to four discs total. Each disc contains even more media. These files behave like their Promo Disc counterparts:
+The MPEG-based retail version expands to four discs total. Each disc contains even more media. These files behave like their promotional disc counterparts:
 
 - Disc 1
   - `VIDEO1.MPG`
@@ -48,9 +52,36 @@ The MPEG Full Retail version expands to four discs total. Each disc contains eve
 
 Please note: some of the audio and video segments are duplicated across these all of these files, to reduce the need for disc swapping.
 
-The AVI Full Retail version is exactly like this MPEG Full Retail version, except the video files are in the [AVI](https://en.wikipedia.org/wiki/Audio_Video_Interleave) file format, using the `.AVI` extension.
+#### AVI
 
-#### Dissecting the `.IDX` File Format
+The AVI retail version behaves exactly like the MPEG-based version, except the video files are in the [AVI](https://en.wikipedia.org/wiki/Audio_Video_Interleave) file format, offering superior video quality.
+
+- Disc 1
+  - `VIDEO1.AVI`
+  - `SOUNDS1.WAV`
+  - `VIDEO1.IDX`
+  - `SOUNDS1.IDX`
+- Disc 2
+  - `VIDEO2.AVI`
+  - `SOUNDS2.WAV`
+  - `VIDEO2.IDX`
+  - `SOUNDS2.IDX`
+- Disc 3
+  - `VIDEO3.AVI`
+  - `SOUNDS3.WAV`
+  - `VIDEO3.IDX`
+  - `SOUNDS3.IDX`
+- Disc 4
+  - `VIDEO4.AVI`
+  - `SOUNDS4.WAV`
+  - `VIDEO4.IDX`
+  - `SOUNDS4.IDX`
+
+#### DVD
+
+The DVD-based version works in an entirely different manner compared to the others, so it is ignored for this project.
+
+### Dissecting the `.IDX` File Format
 
 `.IDX` files for both audio and videos are formatted the same way: they start with a 16 byte header, then 6 byte fields for each segment index and offset.
 
@@ -96,14 +127,14 @@ Thankfully, the NE format is not too complicated. So, it's pretty straightforwar
     | **Field**   | **Offset**  | **Size**  | **Attributes**  | **Resource Type ID**          |
     | ----------- | ----------- | -------   | --------------- | ----------------------------- |
     | **Raw**     | CE 2D       | 06 00     | 20 10           | E9 83                         |
-    | **Parsed**  |   01 6E 70  |  00 30    | 1020 (,Pure)    |  83E9 -> 03E9 -> ID: 1001     |
+    | **Parsed**  | 01 6E 70    | 00 30     | 1020 (,Pure)    | 83E9 -> 03E9 -> ID: 1001      |
 
   - Resource 1002
 
     | **Field**   | **Offset**  | **Size**  | **Attributes**  | **Resource Type ID**          |
     | ----------- | ----------- | -------   | --------------- | ----------------------------- |
     | **Raw**     | D4 2D       | 83 02     | 20 10           | EA 83                         |
-    | **Parsed**  |   01 6E A0  |   14 18   | 1020 (,Pure)    |  83EA -> 03EA -> ID: 1002     |
+    | **Parsed**  | 01 6E A0    | 14 18     | 1020 (,Pure)    | 83EA -> 03EA -> ID: 1002      |
 
 - **Size and Offset** need to be left shifted according to the exponent encoded at the start of the resource table. (byte 224 which is `\x03` in our case). Please note: the offset is relative to the start of the file, not the Windows header, like most of the other offsets.
   - Example:
@@ -191,7 +222,7 @@ There exists a few more instructions within the game scripts. However, their pur
 
 `?*` appears 45 times in the MPEG Promo version. Could also be an alternative video play or jump instruction? It has multiple comma-separate numbers following it (instead of a single number for the previously discussed instructions). Possibly a sequence of videos or a random jump?
 
-### Running the Game
+## Running the Game
 
 Now that we understand the instruction set of the game, let's go through the start of the MPEG promo disc:
 
